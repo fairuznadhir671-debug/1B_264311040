@@ -1,13 +1,3 @@
-SOAL 1: Data Definition & Relasi [Bobot: 40%]
-(SCPMK0720801 - DDL & Relasi) Pembuatan struktur fisik dan ketepatan relasi.
-
-Pilihlah 3 tabel dari proyek kelompok Anda yang saling berelasi (Contoh: 2 Tabel Induk/Master dan 1 Tabel Transaksi/Anak).
-Tuliskan kode SQL CREATE TABLE untuk ketiga tabel tersebut!
-Syarat Wajib:
-Tentukan tipe data yang rasional dan Primary Key yang valid.
-Harus ada deklarasi FOREIGN KEY yang menghubungkan Tabel Transaksi dengan kedua Tabel Induk.
-
-
 CREATE DATABASE IF NOT EXISTS fraud_detection_db;
 USE fraud_detection_db;
 
