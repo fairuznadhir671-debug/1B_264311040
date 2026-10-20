@@ -1,0 +1,8 @@
+SELECT
+    d.nama_dataset,
+    COUNT(t.id_transaksi) AS jumlah_transaksi,
+    SUM(t.nominal)        AS total_nominal
+FROM transaksi t
+JOIN dataset d ON t.id_dataset = d.id_dataset
+WHERE t.tanggal = '2026-10-20'
+GROUP BY d.id_dataset, d.nama_dataset;
