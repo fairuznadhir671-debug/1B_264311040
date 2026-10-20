@@ -1,5 +1,6 @@
 SOAL 1: Data Definition & Relasi [Bobot: 40%]
-(SCPMK0720801 - DDL & Relasi) Pembuatan struktur fisik dan ketepatan relasi.
+(SCPMK0720801 - DDL & Relasi)
+Pembuatan struktur fisik dan ketepatan relasi.
 
 Pilihlah 3 tabel dari proyek kelompok Anda yang saling berelasi (Contoh: 2 Tabel Induk/Master dan 1 Tabel Transaksi/Anak).
 Tuliskan kode SQL CREATE TABLE untuk ketiga tabel tersebut!
@@ -15,6 +16,7 @@ Berdasarkan 3 tabel yang telah Anda buat di Soal 1, lakukan urutan operasi opera
 [READ] Tampilkan seluruh isi salah satu Tabel Induk menggunakan perintah SELECT *.
 [UPDATE] Ubah satu nilai data (misal: mengubah harga, mengubah status, atau memperbaiki nama) pada Tabel Transaksi. Wajib menggunakan klausa WHERE pada Primary Key agar tidak terjadi update massal.
 [DELETE] Hapus salah satu baris data dummy pada Tabel Transaksi. Wajib menggunakan klausa WHERE.
+
 SOAL 3: Query Kompleks & Agregasi Laporan [Bobot: 10%]
 (SCPMK0720803 - WHERE, JOIN, Aggregasi) Ekstraksi Penarikan Data
 
