@@ -1,0 +1,52 @@
+1. Pemodelan Konseptual: Memetakan entitas, atribut, dan aturan bisnis ke dalam Entity-Relationship Diagram (ERD).
+
+Jawaban :
+
+- Daftar Entitas dan Atribut Utama
+•	PENGGUNA
+Atribut: id_pengguna (Primary Key), nama, status_verifikasi.
+•	AKUN
+Atribut: id_akun (Primary Key), jenis_akun, status_akun.
+•	TRANSAKSI (Supertype)
+Atribut: id_transaksi (Primary Key), tanggal, jam, nominal, kanal_transaksi, status_transaksi, waktu_transaksi.
+o	Spesialisasi (Subtype Pembayaran):
+	TRANSAKSI_KARTU_KREDIT (Atribut: negara_transaksi)
+	TRANSAKSI_TRANSFER_BANK (Atribut: kode_bank_tujuan)
+	TRANSAKSI_E_WALLET (Atribut: metode_pembayaran)
+•	FITUR_TRASAKSI
+Atribut: nama_fitur, nilai_fitur.
+•	DATA SET
+Atribut: id_dataset, nama_dataset, sumber_data, format_data.
+•	MODEL_DETEKSI
+Atribut: id_model, nama_algoritma, pendekatan, mode_pemrosesan.
+•	HASIL_EVALUASI
+Atribut: nama_parameter, nilai_parameter.
+•	PERINGATAN_FRAUD
+Atribut: id_peringatan, waktu_deteksi, skor_fraud, status_peringatan, jenis_pola_fraud, jumlah_transaksi_terkait.
+•	ANALISIS_FRAUD
+Atribut: id_penulis, nama_penulis.
+
+- Aturan Bisnis & Hubungan Antar Entitas (Business Rules & Relationships)
+•	Relasi Pengguna & Akun (memegang): 
+Seorang pengguna terdaftar dapat memegang satu atau beberapa akun perbankan/dompet digital.
+•	Relasi Akun & Transaksi (mengirim & menerima):
+ Suatu akun dapat melakukan pengiriman dana maupun menerima dana dalam aktivitas transaksi keuangan.
+•	Pola Supertype/Subtype Transaksi: Entitas utama TRANSAKSI dikelompokkan ke dalam beberapa kanal pembayaran spesifik (Kartu Kredit, Transfer Bank, dan E-Wallet) untuk mengakomodasi atribut tambahan yang berbeda di setiap metode pembayaran.
+•	Relasi Analitik & Machine Learning:
+Data transaksi dihubungkan dengan DATA SET yang kemudian digunakan oleh MODEL_DETEKSI untuk menghasilkan keluaran berupa PERINGATAN_FRAUD.
+o	MODEL_DETEKSI juga dievaluasi melalui HASIL_EVALUASI.
+Setiap PERINGATAN_FRAUD yang muncul akan ditinjau kembali (meninjau) melalui laporan ANALISIS_FRAUD oleh pihak yang berwenang.
+
+2.	Pemodelan Logis: Mentransformasikan ERD ke dalam Skema Relasional serta menerapkan teknik normalisasi (1NF hingga 3NF) untuk menghilangkan redundansi.
+Jawaban :
+Gambar 1. ERD Kelompok 4: Deteksi Fraud pada Transaksi Keuangan
+
+https://drive.google.com/drive/folders/1IL2fw2kCIwUHFjRors1S9uVMIXnaQYlF?usp=sharing
+
+Pemodelan logis pada sistem Fraud Detection dilakukan dengan mentransformasikan rancangan konseptual ke dalam skema relasional terstruktur melalui tahapan normalisasi 
+dari Unnormalized Form (UNF) hingga Third Normal Form (3NF)untuk menghilangkan redundansi dan anomali data. Pada tahap UNF, seluruh data operasional insiden kecurangan 
+dan riwayat deteksi berada dalam satu tabel tunggal dengan atribut multivalued serta kelompok berulang pada langkah penanganan. Tahap 1NF menyelesaikan masalah tersebut 
+dengan memecah nilai menjadi atomik dan menetapkan kunci komposit (No_Laporan + No_Langkah). Selanjutnya pada 2NF, ketergantungan parsial dihilangkan dengan memisahkan
+tabel induk header laporan (LAPORAN_FRAUD) dan tabel detail langkah (KRONOLOGI_PENANGANAN).Pada tahap akhir (3NF), ketergantungan transitif dihilangkan dengan memisahkan
+atribut referensi ke dalam 6 tabel master (PELAPOR, TERLAPOR, REKENING_TERLAPOR, MODUS_PENIPUAN, INDIKATOR, TINDAKAN) serta 1 tabel TRANSAKSI.Hasil dari pemodelan logis 
+ini menghasilkan himpunan 9 tabel relasional 3NF yang terintegrasi secara utuh dan terbebas dari anomali insert, update, maupun delete.
