@@ -37,6 +37,8 @@ Data transaksi dihubungkan dengan DATA SET yang kemudian digunakan oleh MODEL_DE
 o	MODEL_DETEKSI juga dievaluasi melalui HASIL_EVALUASI.
 Setiap PERINGATAN_FRAUD yang muncul akan ditinjau kembali (meninjau) melalui laporan ANALISIS_FRAUD oleh pihak yang berwenang.
 
+-- =====================================================================
+
 2.	Pemodelan Logis: Mentransformasikan ERD ke dalam Skema Relasional serta menerapkan teknik normalisasi (1NF hingga 3NF) untuk menghilangkan redundansi.
 Jawaban :
 Gambar 1. ERD Kelompok 4: Deteksi Fraud pada Transaksi Keuangan
