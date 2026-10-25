@@ -43,10 +43,277 @@ Gambar 1. ERD Kelompok 4: Deteksi Fraud pada Transaksi Keuangan
 
 https://drive.google.com/drive/folders/1IL2fw2kCIwUHFjRors1S9uVMIXnaQYlF?usp=sharing
 
-Pemodelan logis pada sistem Fraud Detection dilakukan dengan mentransformasikan rancangan konseptual ke dalam skema relasional terstruktur melalui tahapan normalisasi 
-dari Unnormalized Form (UNF) hingga Third Normal Form (3NF)untuk menghilangkan redundansi dan anomali data. Pada tahap UNF, seluruh data operasional insiden kecurangan 
-dan riwayat deteksi berada dalam satu tabel tunggal dengan atribut multivalued serta kelompok berulang pada langkah penanganan. Tahap 1NF menyelesaikan masalah tersebut 
-dengan memecah nilai menjadi atomik dan menetapkan kunci komposit (No_Laporan + No_Langkah). Selanjutnya pada 2NF, ketergantungan parsial dihilangkan dengan memisahkan
-tabel induk header laporan (LAPORAN_FRAUD) dan tabel detail langkah (KRONOLOGI_PENANGANAN).Pada tahap akhir (3NF), ketergantungan transitif dihilangkan dengan memisahkan
-atribut referensi ke dalam 6 tabel master (PELAPOR, TERLAPOR, REKENING_TERLAPOR, MODUS_PENIPUAN, INDIKATOR, TINDAKAN) serta 1 tabel TRANSAKSI.Hasil dari pemodelan logis 
-ini menghasilkan himpunan 9 tabel relasional 3NF yang terintegrasi secara utuh dan terbebas dari anomali insert, update, maupun delete.
+2. PEMODELAN LOGIS
+-- Skema relasional:
+--    Pelapor            (Kode_Pelapor, Nama_Pelapor)
+--    Terlapor           (Kode_Terlapor, Identitas_Terlapor)
+--    Rekening_Terlapor  (No_Rekening, Nama_Bank)
+--    Modus_Penipuan     (Kode_Modus, Nama_Modus)
+--    Indikator          (Kode_Indikator, Nama_Indikator, Jenis_Indikator)
+--    Tindakan           (Kode_Tindakan, Nama_Tindakan)
+--    Transaksi          (Id_Transaksi, Waktu_Transaksi, Nominal, Status_Transaksi)
+--    Laporan_Fraud      (No_Laporan, Tgl_Laporan, Kode_Pelapor*, Kode_Terlapor*,
+--                        No_Rekening*, Kode_Modus*, Id_Transaksi*)
+--    Kronologi_Penanganan (No_Laporan*, No_Langkah, Kode_Indikator*, Kode_Tindakan*)
+--
+--    PK : Kode_Pelapor, Kode_Terlapor, No_Rekening, Kode_Modus, Kode_Indikator,
+--         Kode_Tindakan, Id_Transaksi, No_Laporan, (No_Laporan, No_Langkah)
+--    FK : Laporan_Fraud.Kode_Pelapor -> Pelapor
+--         Laporan_Fraud.Kode_Terlapor -> Terlapor
+--         Laporan_Fraud.No_Rekening -> Rekening_Terlapor
+--         Laporan_Fraud.Kode_Modus -> Modus_Penipuan
+--         Laporan_Fraud.Id_Transaksi -> Transaksi
+--         Kronologi_Penanganan.No_Laporan -> Laporan_Fraud
+--         Kronologi_Penanganan.Kode_Indikator -> Indikator
+--         Kronologi_Penanganan.Kode_Tindakan -> Tindakan
+--
+-- Normalisasi:
+--    UNF: LAPORAN_INSIDEN_FRAUD (No_Laporan, Tgl_Laporan, Kode_Pelapor, Nama_Pelapor,
+--         Kode_Terlapor, Identitas_Terlapor, No_Rekening, Nama_Bank, Kode_Modus, Nama_Modus,
+--         Id_Transaksi, Waktu_Transaksi, Nominal, Status_Transaksi,
+--         {Indikator_Kejanggalan}, {Tindakan_Mitigasi})
+--    1NF: {Indikator_Kejanggalan} dan {Tindakan_Mitigasi} bernilai ganda dipecah per baris
+--         menjadi nilai atomik dengan kunci komposit (No_Laporan, No_Langkah).
+--    2NF: Menghilangkan ketergantungan parsial. Informasi header laporan dipisah ke
+--         Laporan_Fraud (kunci: No_Laporan), sedangkan rincian langkah tetap berada
+--         di Kronologi_Penanganan (kunci: No_Laporan, No_Langkah).
+--    3NF: Menghilangkan ketergantungan transitif. Nama_Pelapor bergantung pada Kode_Pelapor;
+--         Identitas_Terlapor pada Kode_Terlapor; Nama_Bank pada No_Rekening; Nama_Modus
+--         pada Kode_Modus; Nama_Indikator/Jenis pada Kode_Indikator; Nama_Tindakan pada
+--         Kode_Tindakan; Waktu/Nominal/Status pada Id_Transaksi. Semuanya dipisah menjadi
+--         tabel master/transaksi tersendiri. Laporan_Fraud dan Kronologi_Penanganan hanya
+--         menyimpan Foreign Key.
+
+3. 	Pemodelan Fisik:Menerjemahkan skema relasional menjadi struktur tabel fisik menggunakan kode SQL DDL, lengkap dengan Primary Key, Foreign Key, dan constraint validasi
+-- =====================================================================
+
+CREATE DATABASE IF NOT EXISTS fraud_detection_db
+    DEFAULT CHARACTER SET utf8mb4
+    DEFAULT COLLATE utf8mb4_unicode_ci;
+USE fraud_detection_db;
+
+-- Hapus tabel jika sudah ada (urutan: anak dulu, baru induk)
+DROP TABLE IF EXISTS peninjauan_fraud;
+DROP TABLE IF EXISTS hasil_evaluasi;
+DROP TABLE IF EXISTS fitur_transaksi;
+DROP TABLE IF EXISTS transaksi_e_wallet;
+DROP TABLE IF EXISTS transaksi_transfer_bank;
+DROP TABLE IF EXISTS transaksi_kartu_kredit;
+DROP TABLE IF EXISTS transaksi;
+DROP TABLE IF EXISTS pola_fraud;
+DROP TABLE IF EXISTS peringatan_fraud;
+DROP TABLE IF EXISTS model_deteksi;
+DROP TABLE IF EXISTS dataset;
+DROP TABLE IF EXISTS akun;
+DROP TABLE IF EXISTS pengguna;
+DROP TABLE IF EXISTS analis_fraud;
+
+-- =====================================================================
+-- A. TABEL MASTER
+-- =====================================================================
+
+-- 1. Pengguna
+CREATE TABLE pengguna (
+    id_pengguna       INT AUTO_INCREMENT PRIMARY KEY,
+    nama              VARCHAR(100) NOT NULL,
+    status_verifikasi ENUM('Terverifikasi', 'Belum Terverifikasi')
+                      NOT NULL DEFAULT 'Belum Terverifikasi',
+    CONSTRAINT chk_pengguna_nama CHECK (CHAR_LENGTH(TRIM(nama)) > 0)
+) ENGINE=InnoDB;
+
+-- 2. Akun (simpul/node dalam konsep Graph); relasi "memegang" 1:N
+CREATE TABLE akun (
+    id_akun     INT AUTO_INCREMENT PRIMARY KEY,
+    id_pengguna INT NOT NULL,
+    jenis_akun  ENUM('Rekening Bank', 'E-Wallet', 'Kartu Kredit') NOT NULL,
+    status_akun ENUM('Aktif', 'Dibekukan') NOT NULL DEFAULT 'Aktif',
+    CONSTRAINT fk_akun_pengguna FOREIGN KEY (id_pengguna)
+        REFERENCES pengguna(id_pengguna) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- 3. Dataset
+CREATE TABLE dataset (
+    id_dataset    INT AUTO_INCREMENT PRIMARY KEY,
+    nama_dataset  VARCHAR(100) NOT NULL,
+    sumber_data   ENUM('Publik', 'Lokal') NOT NULL,
+    format_data   ENUM('CSV', 'JSON', 'Parquet', 'XML', 'Graph', 'Stream') NOT NULL,
+    jumlah_record INT NOT NULL DEFAULT 0,
+    CONSTRAINT chk_dataset_jumlah CHECK (jumlah_record >= 0)
+) ENGINE=InnoDB;
+
+-- 4. Model deteksi
+CREATE TABLE model_deteksi (
+    id_model        INT AUTO_INCREMENT PRIMARY KEY,
+    nama_algoritma  VARCHAR(100) NOT NULL,
+    pendekatan      ENUM('Supervised', 'Unsupervised', 'Rule-based', 'Hybrid') NOT NULL,
+    mode_pemrosesan ENUM('Real-time', 'Batch', 'Hybrid') NOT NULL
+) ENGINE=InnoDB;
+
+-- 5. Analis fraud
+CREATE TABLE analis_fraud (
+    id_analis   INT AUTO_INCREMENT PRIMARY KEY,
+    nama_analis VARCHAR(100) NOT NULL
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- B. PERINGATAN FRAUD, POLA, DAN PENINJAUAN
+-- =====================================================================
+
+-- 6. Peringatan fraud; relasi "menghasilkan" (model 1:N peringatan)
+CREATE TABLE peringatan_fraud (
+    id_peringatan     INT AUTO_INCREMENT PRIMARY KEY,
+    id_model          INT NOT NULL,
+    waktu_deteksi     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    skor_fraud        DECIMAL(5,4) NOT NULL,
+    status_peringatan ENUM('Baru', 'Sedang Ditinjau', 'Selesai') NOT NULL DEFAULT 'Baru',
+    CONSTRAINT chk_peringatan_skor CHECK (skor_fraud BETWEEN 0 AND 1),
+    CONSTRAINT fk_peringatan_model FOREIGN KEY (id_model)
+        REFERENCES model_deteksi(id_model) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- 7. Pola fraud (atribut multivalued jenis_pola_fraud)
+CREATE TABLE pola_fraud (
+    id_pola       INT AUTO_INCREMENT PRIMARY KEY,
+    id_peringatan INT NOT NULL,
+    nama_pola     VARCHAR(100) NOT NULL,
+    CONSTRAINT uq_pola_peringatan UNIQUE (id_peringatan, nama_pola),
+    CONSTRAINT fk_pola_peringatan FOREIGN KEY (id_peringatan)
+        REFERENCES peringatan_fraud(id_peringatan) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 8. Relasi M:N "meninjau" (analis fraud meninjau peringatan)
+CREATE TABLE peninjauan_fraud (
+    id_analis      INT NOT NULL,
+    id_peringatan  INT NOT NULL,
+    waktu_tinjau   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    catatan_analis TEXT NULL,
+    PRIMARY KEY (id_analis, id_peringatan),
+    CONSTRAINT fk_tinjau_analis FOREIGN KEY (id_analis)
+        REFERENCES analis_fraud(id_analis) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_tinjau_peringatan FOREIGN KEY (id_peringatan)
+        REFERENCES peringatan_fraud(id_peringatan) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- C. TRANSAKSI DAN SPESIALISASINYA
+-- =====================================================================
+
+-- 9. Transaksi utama (supertype / edge)
+--    id_dataset    : relasi "berisi" (dataset 1:N transaksi)
+--    id_peringatan : relasi "memicu" (peringatan 1:N transaksi)
+CREATE TABLE transaksi (
+    id_transaksi     INT AUTO_INCREMENT PRIMARY KEY,
+    id_akun_pengirim INT NOT NULL,
+    id_akun_penerima INT NULL,                 -- boleh NULL jika penarikan ATM
+    id_dataset       INT NULL,
+    id_peringatan    INT NULL,
+    tanggal          DATE NOT NULL,
+    jam              TIME NOT NULL,
+    nominal          DECIMAL(15,2) NOT NULL,
+    kanal_transaksi  ENUM('Online', 'Mobile', 'ATM', 'Payment Gateway') NOT NULL,
+    status_transaksi ENUM('Berhasil', 'Diblokir', 'Ditahan') NOT NULL DEFAULT 'Berhasil',
+    label_fraud      ENUM('Fraud', 'Sah') NULL, -- NULL jika belum berlabel
+    jenis_transaksi  ENUM('Kartu Kredit', 'Transfer Bank', 'E-Wallet') NOT NULL,
+    CONSTRAINT chk_transaksi_nominal CHECK (nominal > 0),
+    CONSTRAINT chk_transaksi_beda_akun
+        CHECK (id_akun_penerima IS NULL OR id_akun_pengirim <> id_akun_penerima),
+    CONSTRAINT fk_transaksi_pengirim FOREIGN KEY (id_akun_pengirim) REFERENCES akun(id_akun),
+    CONSTRAINT fk_transaksi_penerima FOREIGN KEY (id_akun_penerima) REFERENCES akun(id_akun),
+    CONSTRAINT fk_transaksi_dataset FOREIGN KEY (id_dataset) REFERENCES dataset(id_dataset),
+    CONSTRAINT fk_transaksi_peringatan FOREIGN KEY (id_peringatan)
+        REFERENCES peringatan_fraud(id_peringatan)
+) ENGINE=InnoDB;
+
+-- 10-12. Subtype transaksi (spesialisasi disjoint)
+CREATE TABLE transaksi_kartu_kredit (
+    id_transaksi     INT PRIMARY KEY,
+    negara_transaksi VARCHAR(50) NOT NULL,
+    CONSTRAINT fk_sub_cc FOREIGN KEY (id_transaksi)
+        REFERENCES transaksi(id_transaksi) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE transaksi_transfer_bank (
+    id_transaksi     INT PRIMARY KEY,
+    kode_bank_tujuan VARCHAR(10) NOT NULL,
+    CONSTRAINT fk_sub_bank FOREIGN KEY (id_transaksi)
+        REFERENCES transaksi(id_transaksi) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE transaksi_e_wallet (
+    id_transaksi      INT PRIMARY KEY,
+    metode_pembayaran ENUM('QRIS', 'Saldo') NOT NULL,
+    CONSTRAINT fk_sub_ewallet FOREIGN KEY (id_transaksi)
+        REFERENCES transaksi(id_transaksi) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 13. Fitur transaksi (entitas lemah, PK gabungan)
+CREATE TABLE fitur_transaksi (
+    id_transaksi INT NOT NULL,
+    nama_fitur   VARCHAR(50) NOT NULL,
+    nilai_fitur  VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id_transaksi, nama_fitur),
+    CONSTRAINT fk_fitur_transaksi FOREIGN KEY (id_transaksi)
+        REFERENCES transaksi(id_transaksi) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- D. EVALUASI MODEL
+-- =====================================================================
+
+-- 14. Hasil evaluasi (entitas lemah dari model_deteksi, PK gabungan)
+CREATE TABLE hasil_evaluasi (
+    id_model        INT NOT NULL,
+    nama_parameter  VARCHAR(50) NOT NULL,
+    nilai_parameter DECIMAL(6,4) NOT NULL,
+    PRIMARY KEY (id_model, nama_parameter),
+    CONSTRAINT chk_evaluasi_nilai CHECK (nilai_parameter >= 0),
+    CONSTRAINT fk_evaluasi_model FOREIGN KEY (id_model)
+        REFERENCES model_deteksi(id_model) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- E. INDEKS (kolom FK sudah otomatis diindeks oleh InnoDB)
+-- =====================================================================
+
+-- Pemfilteran berdasarkan rentang waktu
+CREATE INDEX idx_transaksi_tanggal ON transaksi(tanggal);
+
+-- Pencarian anomali lonjakan nominal
+CREATE INDEX idx_transaksi_nominal ON transaksi(nominal);
+
+-- =====================================================================
+-- F. TRIGGER VALIDASI SPESIALISASI
+--    Baris subtype hanya boleh dibuat jika jenis_transaksi pada tabel
+--    transaksi sesuai. Di phpMyAdmin, pastikan kolom Delimiter = ;
+--    (skrip ini mengatur delimiter sendiri lewat DELIMITER $$).
+-- =====================================================================
+DELIMITER $$
+
+CREATE TRIGGER trg_kk_cek_jenis BEFORE INSERT ON transaksi_kartu_kredit
+FOR EACH ROW
+BEGIN
+    IF (SELECT jenis_transaksi FROM transaksi WHERE id_transaksi = NEW.id_transaksi)
+       <> 'Kartu Kredit' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'jenis_transaksi bukan Kartu Kredit';
+    END IF;
+END$$
+
+CREATE TRIGGER trg_tb_cek_jenis BEFORE INSERT ON transaksi_transfer_bank
+FOR EACH ROW
+BEGIN
+    IF (SELECT jenis_transaksi FROM transaksi WHERE id_transaksi = NEW.id_transaksi)
+       <> 'Transfer Bank' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'jenis_transaksi bukan Transfer Bank';
+    END IF;
+END$$
+
+CREATE TRIGGER trg_ew_cek_jenis BEFORE INSERT ON transaksi_e_wallet
+FOR EACH ROW
+BEGIN
+    IF (SELECT jenis_transaksi FROM transaksi WHERE id_transaksi = NEW.id_transaksi)
+       <> 'E-Wallet' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'jenis_transaksi bukan E-Wallet';
+    END IF;
+END$$
+
+DELIMITER ;
